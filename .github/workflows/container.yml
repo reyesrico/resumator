@@ -39,7 +39,7 @@ jobs:
             --env APP_ACCESS_USERNAME=build-check \
             --env APP_ACCESS_PASSWORD=synthetic-build-check-password-only \
             resumator-check
-          curl --fail --retry 15 --retry-connrefused --retry-delay 2 http://127.0.0.1:10000/healthz
+          curl --fail --retry 15 --retry-all-errors --retry-delay 2 --max-time 5 http://127.0.0.1:10000/healthz
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header 'X-Forwarded-Proto: https' http://127.0.0.1:10000/api/health)" = "401"
           curl --fail --silent --header 'X-Forwarded-Proto: https' \
