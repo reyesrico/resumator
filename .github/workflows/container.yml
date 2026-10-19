@@ -46,8 +46,8 @@ jobs:
             --user build-check:synthetic-build-check-password-only \
             http://127.0.0.1:10000/api/health |
             python3 -c 'import json,sys; h=json.load(sys.stdin); assert all(h[k] for k in ("libreoffice", "pdfNative", "pdf2docx")), h; assert not h["claude"]; print("Converters ready; no Claude key was included.")'
-          docker top resumator-check -eo uid,comm |
-            awk '$1 == 1000 && $2 == "node" { found = 1 } END { exit !found }'
+          docker top resumator-check -eo pid,uid,comm |
+            awk '$2 == 1000 && $3 == "node" { found = 1 } END { exit !found }'
       - name: Container logs
         if: failure()
         run: docker logs resumator-check || true
