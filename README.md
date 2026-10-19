@@ -38,6 +38,25 @@ npm start
 
 Open `http://127.0.0.1:3001`. The server intentionally binds to loopback.
 
+## GitHub Pages and personal hosted deployment
+
+Public entry page: <https://reyesrico.github.io/resumator/>.
+
+GitHub Pages cannot execute Express, Python, or LibreOffice. The Pages workflow publishes only `site/`, not the app server, resume files, or environment files. Until a backend has actually been deployed, the entry page explicitly says that online uploads and tailoring are unavailable. After deployment and verification, set `studioUrl` in `site/config.js` to the service's HTTPS URL and push. The entry page then links to the full protected studio on that origin, avoiding cross-site cookies and exposing no API credentials.
+
+The repository includes a Docker image definition and a Render Blueprint:
+
+1. Create a Render account and connect this repository through **New > Blueprint**. Review `render.yaml` before approving any charges: it requests a **paid Standard web service** and a **1 GB persistent disk**. The larger memory tier is intended for LibreOffice and Python conversion; review Render's current pricing in its dashboard. No Render resources are provisioned merely by committing this file.
+2. Enter the existing Anthropic API key in Render's `ANTHROPIC_API_KEY` secret field. Do not paste it into chat, source files, GitHub Pages, or any `VITE_*` variable. No new provider key is created automatically. API usage is billed separately by Anthropic.
+3. The Blueprint generates `APP_ACCESS_PASSWORD`; retrieve it in the Render service's Environment settings. The initial username is `reyesrico`. Both credentials stay server-side. Use the generated long password, a password manager, and HTTPS.
+4. Docker installs the Python converters, LibreOffice, and Liberation fonts. It excludes local environment files and resume storage from the build context. The startup script initializes the mounted library directory, then drops to the unprivileged `node` user. The hosted library starts empty: local saved resumes are **not** uploaded or migrated to Render.
+5. Confirm the deploy succeeds. `/healthz` is a minimal public readiness endpoint; all studio pages and `/api/*` require HTTP Basic authentication. Check `/api/health` after signing in, then verify PDF/Word conversion and a saved original across a restart. Hosted Word rendering may differ from macOS because installed fonts differ.
+6. Set the verified backend URL in `site/config.js` and push to publish the launch link. No Claude key is needed in GitHub Actions secrets. Only the backend uses it.
+
+Hosted mode sets `RESUMATOR_PUBLIC=true`, binds `0.0.0.0`, trusts **one TLS-terminating reverse proxy**, and refuses to start without a username and password of at least 20 characters. This proxy setting targets Render; do not expose that mode directly without a trusted HTTPS proxy. Plaintext hosted requests are rejected. Login failures are rate limited. The local default remains loopback-only and does not require a password.
+
+This is access protection for a **single-owner personal studio**, not multi-user account management or a hardened public upload service. Keep the login private. Browser Basic-auth sessions usually end when the browser session is closed; there is no in-app logout. Rotating the server password invalidates old credentials. Resume files are stored on the hosted disk, not the visitor's computer, and are not encrypted by the app. Review document-parser licenses before deploying; PyMuPDF uses AGPL/commercial licensing.
+
 ## How it works
 
 1. Upload a PDF, legacy DOC, or DOCX (maximum 10 MB) to your private local resume library. Each upload adds a saved version. The newest upload becomes the default basis on your next visit; select an older version whenever needed. Tailored documents never overwrite the original or become a new basis automatically.

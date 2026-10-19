@@ -11,6 +11,7 @@ if (existsSync(dist)) {
   app.get("*", (_req, res) => res.sendFile(resolve(dist, "index.html")));
 }
 const port = Number(process.env.PORT || 3001);
-app.listen(port, "127.0.0.1", () => {
-  console.log(`Resumator API listening on http://127.0.0.1:${port}`);
+const host = process.env.RESUMATOR_PUBLIC === "true" ? "0.0.0.0" : "127.0.0.1";
+app.listen(port, host, () => {
+  console.log(`Resumator listening on ${host}:${port}`);
 });

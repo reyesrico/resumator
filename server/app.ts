@@ -18,6 +18,7 @@ import { fitPdf, inspectPdf, pdfHealth } from "./pdf.js";
 import { filterSuggestions } from "./facts.js";
 import { hasTextChange } from "../shared/changes.js";
 import { ResumeLibrary } from "./library.js";
+import { accessGate } from "./access.js";
 
 interface StoredResume {
   owner: string;
@@ -55,13 +56,18 @@ function sourceFormat(file: Express.Multer.File): ResumeInfo["format"] {
 
 export function createApp(options: { storageDirectory?: string } = {}) {
   const app = express();
+  const publicDeployment = process.env.RESUMATOR_PUBLIC === "true";
   const library = new ResumeLibrary(options.storageDirectory ?? process.env.RESUMATOR_DATA_DIR ?? resolve(".resumator-data"));
   const resumes = new Map<string, StoredResume>();
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 0 } });
   app.disable("x-powered-by");
+  if (publicDeployment) app.set("trust proxy", 1);
   app.use(helmet({ contentSecurityPolicy: {
     directives: { "frame-src": ["'self'"], "frame-ancestors": ["'self'"], "upgrade-insecure-requests": null },
   } }));
+  app.get("/healthz", (_req, res) => { res.type("text").send("ok"); });
+  const gate = accessGate(process.env.APP_ACCESS_USERNAME, process.env.APP_ACCESS_PASSWORD, publicDeployment);
+  if (gate.length) app.use(...gate);
   app.use("/api", (_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
   app.use("/api", (req, res, next) => {
     const session = owner(req);

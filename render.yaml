@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: resumator
+    runtime: docker
+    plan: standard
+    healthCheckPath: /healthz
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: APP_ACCESS_USERNAME
+        value: reyesrico
+      - key: APP_ACCESS_PASSWORD
+        generateValue: true
+    disk:
+      name: resume-library
+      mountPath: /var/data
+      sizeGB: 1
