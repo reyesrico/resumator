@@ -1,106 +1,89 @@
 # Resumator
 
-A single-page resume studio that uses the **Anthropic Claude API** to tailor wording to a job description. Users upload PDF, DOC, or DOCX, import a public job-posting URL or paste the description, review proposed changes, and approve a measured one-page result.
+A **browser-only** resume studio at <https://reyesrico.github.io/resumator/>.
 
-## Local setup
+No hosted backend, Render account, paid hosting, Python installation, or LibreOffice installation is required. GitHub Pages serves the application and its WebAssembly engine. Documents are processed on your device.
 
-Requires Node.js 20.19+ or a supported newer LTS, LibreOffice for Word, and Python 3.10+ with PyMuPDF for layout-preserving PDF editing. `pdf2docx` is used only for optional reconstructed Word exports from PDF.
+## Use it
+
+1. Open the site in a current Safari, Chrome, Edge, or Firefox browser. WebAssembly, IndexedDB, and modern JavaScript are required; the PDF engine downloads approximately 10 MB on first use. Mobile PDF editing uses device memory and can take time.
+2. Enter **your own Anthropic API key** in the password field. The app holds it only in page memory, never in IndexedDB, localStorage, sessionStorage, URLs, source code, or GitHub Actions secrets. **Refreshing, navigating away, or closing the page clears the key.** “Clear key” removes it immediately. API calls go directly from your browser to `https://api.anthropic.com`.
+3. Open a **PDF or DOCX**, up to 10 MB. Each upload is a new local version; the newest is selected on your next visit. Use the selector for an older basis. Tailored documents never replace originals.
+4. Paste the job description (100–25,000 characters). Job sites usually block browser cross-origin access, so automatic job-link import is not offered. No third-party proxy is used.
+5. Consent to send resume text and job requirements to Anthropic, then tailor. Each click makes one billable Claude request. Editing and regenerating a preview do not make AI calls.
+6. Review the exact removed/added words, concrete explanations, and enclosing paragraph context. Reject or edit suggestions, then update the preview.
+7. For a PDF source, compare the previews and approve the current measured one-page PDF before downloading. Unsupported edits and overflow block final downloads; the app does not rebuild the template.
+8. For DOCX, review and download an explicitly labeled **draft**. Open it in Word or Pages and verify one page there. Browser previews cannot certify Microsoft Word pagination; the app does not pretend otherwise.
+
+**Free hosting does not mean free AI usage.** Anthropic API billing is separate from a Claude chat subscription. The default model is `claude-sonnet-5-5`; API model availability depends on your account.
+
+## Local storage and backups
+
+- Original bytes, extracted text, version metadata, and filenames stay in this website's **IndexedDB on the current device/browser**. They are not sent to GitHub or a Resumator server.
+- Generated previews, edits, approval state, job descriptions, and the API key are temporary page-memory state. Reloading restores the latest original, not the old review.
+- **Download original backup** saves an untouched copy through the browser's Files/Downloads workflow. On iPhone, use the browser's download/share controls to save to Files. A website cannot silently write to an arbitrary folder.
+- Website-data clearing, private browsing, browser eviction, device loss, or changing the website origin can remove or hide the local library. Download your originals; IndexedDB is not your only backup.
+- Other devices, browser profiles, and the local development URL have separate libraries. There is no account or cross-device synchronization.
+- Delete a version under **Manage this version**. This deletes its browser record and temporary output, falling back to the newest remaining original. It does not remove downloaded copies, backups, or Anthropic-held information.
+- Existing originals in the previous local server's ignored `.resumator-data/` directory are not automatically uploaded to the published site. Download them from the old local version or use the original files, then open them once in the browser app.
+
+## Design preservation and format limits
+
+### PDF
+
+MuPDF runs locally as WebAssembly. The app extracts independently styled regions and captures original font glyphs, baselines, colors, and placement. Replacements use those actual glyphs; a custom subset font's Unicode mapping is explicitly retained in the generated overlay, avoiding font substitution and unsearchable text.
+
+Text is redacted only in supported original regions. Page images, graphics, dimensions, and unrelated text remain in the original PDF. Shorter text moves subsequent inline runs and supported filled underlines by the measured width difference, including real link targets. Unsupported glyphs, ambiguous font mappings, rotated/offset geometry, overlapping text, and line overflow block the edit instead of silently changing the design. Complex decorations are protected rather than reconstructed. Always compare the full preview.
+
+Replacements must fit their original line widths; browser mode does not shrink text or reflow paragraphs across lines. It never removes pages to force a one-page resume. Scans require OCR before use. A PDF source produces PDF only, not a reconstructed Word copy.
+
+### DOCX
+
+DOCX archives are edited locally. Character-level differences preserve unchanged Word runs and style definitions. Linked paragraphs, fields, tabs, line breaks, tracked changes, and other unsupported controls are protected. Macros, embedded executable objects, external templates/assets, XML entities, and expanded archives over 40 MB are rejected.
+
+The sandboxed browser preview is **approximate**. Missing fonts, Word text boxes, pagination, and application-specific layout can render differently in Word/Pages. DOCX downloads are drafts, not page-certified final documents. No automatic DOCX-to-PDF conversion is provided. Legacy `.doc` is unsupported; save as DOCX or a one-page PDF first.
+
+### Facts
+
+Claude is instructed to use the resume as the sole factual source. Independent validation blocks changes to numeric facts, dates, metrics, and recognized experience qualifiers, including `10+ years` becoming `5+ years`. No-op suggestions are removed. These checks cannot semantically verify every skill or assertion: human review remains necessary.
+
+## API-key and privacy boundary
+
+Your in-memory key is visible to code running on the page, potentially malicious browser extensions, and someone controlling your device. Browser-side keys cannot be made equivalent to a secret held on a trusted server. Use only your own key, monitor API spending, and revoke it in the Anthropic Console if exposed. Do not use this app on an untrusted/shared device.
+
+There are no analytics or third-party document-upload services. Anthropic receives resume text, context, job text, and the key only when you explicitly submit a tailoring request with consent. Anthropic's API retention and billing terms apply; deleting browser files does not delete provider-held data. Requests use a fixed Anthropic endpoint, not a user-supplied proxy.
+
+GitHub Pages may record ordinary website requests according to GitHub's privacy policies. No API key is injected at build time. The content security policy restricts network calls to the site itself and Anthropic, and all executable assets, fonts, and WebAssembly are bundled rather than loaded from a CDN.
+
+## Development and publishing
+
+Requires Node.js 20.19+ or a current supported LTS.
 
 ```sh
-npm install
-cp .env.example .env
-```
-
-Set `ANTHROPIC_API_KEY` in `.env`. Obtain a key from the [Anthropic Console](https://console.anthropic.com/). Claude API usage is billed separately from Claude chat subscriptions. The default model is `claude-sonnet-5-5`; change `ANTHROPIC_MODEL` to a model available to your account. The key is used only by the server, never included in the browser bundle.
-
-Install the document converters on macOS:
-
-```sh
-brew install --cask libreoffice
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-```
-
-Set `PDF2DOCX_BIN` in `.env` to the **absolute** path to `.venv/bin/pdf2docx`. Native PDF processing finds Python beside that executable or in the project's `.venv`; override with `PDF_PYTHON_BIN` if needed. `LIBREOFFICE_BIN` defaults to the standard macOS application path or `libreoffice` on other platforms. On Linux, install LibreOffice through your system package manager. Windows requires executable paths and a compatible shell.
-
-```sh
+npm ci
 npm run dev
 ```
 
-Open the URL printed by Vite, normally `http://127.0.0.1:5173`. The API listens on `127.0.0.1:3001`. The page reports missing setup prerequisites explicitly. After changing `.env` or installing converters, restart the app and refresh.
-
-For a local production build:
+Vite prints the local URL. No `.env` file or backend is needed for this browser application.
 
 ```sh
 npm run build
 npm start
 ```
 
-Open `http://127.0.0.1:3001`. The server intentionally binds to loopback.
+This serves the static production build on <http://127.0.0.1:3001>. Relative asset paths support the `/resumator/` GitHub Pages project URL.
 
-## GitHub Pages and personal hosted deployment
+The Pages workflow builds `dist/` and publishes it after pushes to `main`. It uses no Anthropic secret. Environment files, downloaded resumes, and the previous server's private storage are excluded from Git. Obsolete Render deployment configuration has been removed.
 
-Public entry page: <https://reyesrico.github.io/resumator/>.
+The earlier Node/Python implementation and its tests remain in `server/` for reference and local advanced processing; the browser entry point does not contact its API. Its ignored environment file and document library are untouched. Existing server-specific dependencies are retained for those tests, not required hosting services.
 
-GitHub Pages cannot execute Express, Python, or LibreOffice. The Pages workflow publishes only `site/`, not the app server, resume files, or environment files. Until a backend has actually been deployed, the entry page explicitly says that online uploads and tailoring are unavailable. After deployment and verification, set `studioUrl` in `site/config.js` to the service's HTTPS URL and push. The entry page then links to the full protected studio on that origin, avoiding cross-site cookies and exposing no API credentials.
-
-The repository includes a Docker image definition and a Render Blueprint:
-
-1. Create a Render account and connect this repository through **New > Blueprint**. Review `render.yaml` before approving any charges: it requests a **paid Standard web service** and a **1 GB persistent disk**. The larger memory tier is intended for LibreOffice and Python conversion; review Render's current pricing in its dashboard. No Render resources are provisioned merely by committing this file.
-2. Enter the existing Anthropic API key in Render's `ANTHROPIC_API_KEY` secret field. Do not paste it into chat, source files, GitHub Pages, or any `VITE_*` variable. No new provider key is created automatically. API usage is billed separately by Anthropic.
-3. The Blueprint generates `APP_ACCESS_PASSWORD`; retrieve it in the Render service's Environment settings. The initial username is `reyesrico`. Both credentials stay server-side. Use the generated long password, a password manager, and HTTPS.
-4. Docker installs the Python converters, LibreOffice, and Liberation fonts. It excludes local environment files and resume storage from the build context. The startup script initializes the mounted library directory, then drops to the unprivileged `node` user. The hosted library starts empty: local saved resumes are **not** uploaded or migrated to Render.
-5. Confirm the deploy succeeds. `/healthz` is a minimal public readiness endpoint; all studio pages and `/api/*` require HTTP Basic authentication. Check `/api/health` after signing in, then verify PDF/Word conversion and a saved original across a restart. Hosted Word rendering may differ from macOS because installed fonts differ.
-6. Set the verified backend URL in `site/config.js` and push to publish the launch link. No Claude key is needed in GitHub Actions secrets. Only the backend uses it.
-
-Hosted mode sets `RESUMATOR_PUBLIC=true`, binds `0.0.0.0`, trusts **one TLS-terminating reverse proxy**, and refuses to start without a username and password of at least 20 characters. This proxy setting targets Render; do not expose that mode directly without a trusted HTTPS proxy. Plaintext hosted requests are rejected. Login failures are rate limited. The local default remains loopback-only and does not require a password.
-
-This is access protection for a **single-owner personal studio**, not multi-user account management or a hardened public upload service. Keep the login private. Browser Basic-auth sessions usually end when the browser session is closed; there is no in-app logout. Rotating the server password invalidates old credentials. Resume files are stored on the hosted disk, not the visitor's computer, and are not encrypted by the app. Review document-parser licenses before deploying; PyMuPDF uses AGPL/commercial licensing.
-
-## How it works
-
-1. Upload a PDF, legacy DOC, or DOCX (maximum 10 MB) to your private local resume library. Each upload adds a saved version. The newest upload becomes the default basis on your next visit; select an older version whenever needed. Tailored documents never overwrite the original or become a new basis automatically.
-2. PDFs stay PDFs: extract text blocks and their original font, size, color, line baselines, and bounds. Split mixed-style blocks into independently editable style regions instead of protecting the entire paragraph. Aligned body lines with a common style remain grouped; inline bold/italic text keeps its own region. Supply the enclosing paragraph as context, but apply each replacement only to its region. Protect linked, rotated, overlapping, or unsupported-font regions individually. Only legacy DOC is converted to DOCX for editing. Scanned resumes need OCR before uploading. Word paragraphs with links, tabs, fields, tracked changes, or line breaks are protected from edits.
-3. Import a job URL, or paste at least 100 characters of requirements. Sites requiring login or JavaScript may block import; the app reports that and asks for pasted text.
-4. With explicit consent, send the whole resume and job description to Claude. The resume is the factual source of truth; a job's minimum does not replace actual experience. Independently reject edits that alter numeric facts (including `10+` to `5+`, dates, metrics, or percentages) or recognized experience phrases. Report blocked suggestions and retain the original paragraph. Apply the same guard to manual edits. This does not semantically verify every named entity, skill, or claim: user review is still essential.
-5. Remove identical and whitespace-only suggestions before counting changes. For DOCX, use character-level edits so unchanged text keeps its exact original style run, rather than redistributing text proportionally. For PDFs, replace only supported text inside its original block bounds using the original font and color, keeping images, graphics, links, page geometry, and unrelated text. No Word reconstruction occurs in the authoritative PDF path.
-6. Render Word through LibreOffice and count actual PDF pages. If a result exceeds one page, or PDF wording cannot fit its original area, request a shorter second pass from the original resume. Only then try 3% and 6% reductions. Word adjusts explicit font sizes and paragraph before/after spacing; PDF adjusts only edited text, retaining original line positions. Font sizes are not reduced below 9 pt, nor are already smaller fonts made smaller. Unsupported glyphs, fonts, and overflow block export instead of silently substituting a template. If any PDF edit fails, the preview remains the original and explicitly reports the failure, never a misleading partially edited document.
-7. Review wording changes first: removed words are struck through, additions are highlighted, and each change has an explicit reason plus expandable original paragraph context. Then compare simultaneous original/tailored previews, edit or reject suggestions, and regenerate after changes. A revision-specific approval is required before downloading PDF, DOCX, or DOC. Changing the rendered document invalidates approval. For PDF sources, Word downloads require an additional explicit opt-in to layout-changing reconstruction and another page-count check.
-8. Block final downloads when the result is not one page. Legacy DOC export is converted back to PDF and page-count checked again.
-
-Tailoring can make two billable Claude requests. Editing suggestions and regenerating previews do not make additional AI requests.
-
-## Design fidelity and one-page limitations
-
-**Unsupported PDF edits are blocked, not rebuilt in another template.** Mixed-font paragraphs are editable through individual style regions; a bold heading or emphasized keyword does not lock the surrounding body text. Linked text, rotated text, genuinely overlapping text, and unreusable fonts stay protected. Embedded subset fonts may not contain the glyphs needed for new wording. Replacements must fit the original line widths and baselines, so an inline region can accept fewer wording changes than a full body paragraph. Original PDF pages are never deleted or reflowed to force one page; start with a one-page PDF.
-
-Custom-encoded embedded TrueType subsets are remapped using each individual PDF font resource's ToUnicode and CIDToGIDMap or supported Macintosh cmap. Original outlines and advance widths are retained; no replacement font is downloaded or substituted. This avoids mixing different subsets that share a family name. Original horizontal text scaling is retained per line. Missing glyphs still block edits rather than being invented.
-
-When text before an inline style or link becomes shorter, subsequent runs on that line move left by the measured width difference. Their original fonts, colors, spacing, baselines, underlines, and URI targets are retained. This keeps inline labels attached instead of leaving gaps at their old absolute positions. Unsupported inline fonts or decorations block the edit rather than silently damaging the design.
-
-Optional PDF-to-Word exports reconstruct layout and may change it; they are labeled separately from the original-layout PDF. Legacy DOC conversion and LibreOffice's Word rendering can also differ from Microsoft Word when fonts are missing. Unchanged Word text retains its existing runs; replacement text inherits a neighboring run's style. Word text boxes and fixed-height table cells can still clip text without increasing page count, so a Word page-count check is **not** a visual overflow detector. Both formats require visual review.
-
-The generated PDF is the authoritative one-page output. DOCX and DOC can reflow when opened on other computers or with different fonts. Documents that still exceed one page after bounded adjustments are blocked, not cropped, stripped of entries, or silently reduced to unreadable text.
-
-## Privacy and deployment boundary
-
-- This is a **local-first MVP**, not a hardened public multi-user service.
-- Original uploads, normalized editing sources, original PDF previews, and version metadata are saved on disk until explicitly deleted. The default ignored directory is `.resumator-data/` in the project working directory; override it with `RESUMATOR_DATA_DIR` (use an absolute path for a stable location). Owner subdirectories use `0700` permissions and document records use `0600`; contents are not encrypted at rest. Each save is atomic and completes before upload success is reported. Back up the directory if needed.
-- Generated outputs and approval state stay in server memory, expire after 30 minutes of inactivity, and are purged on the next API request or server shutdown. Returning after a restart automatically restores the latest original basis, not a previous tailored output. Job descriptions and suggestions are not persisted.
-- **Upload new version** retains older originals. The version selector lets you use an older basis for the current visit. **Manage this version > Delete version permanently** removes that saved record and any in-memory result, falling back to the newest remaining version. Deletion cannot remove OS/cloud backups or provider-held data.
-- Conversion uses isolated temporary working directories, removed after each operation. Files and credentials are not intentionally logged.
-- Resume text and job requirements are sent to Anthropic only after consent. Anthropic processing and retention are governed by your API account terms; local deletion does not delete provider-held data.
-- Browser sessions use HTTP-only, same-site cookies renewed for one year; the cookie identifies your local library across refreshes and server restarts. Use the same browser profile and hostname. Clearing cookies loses access to the associated saved library, but does not delete its files: remove the local data directory manually if you want to clear all libraries. There are no accounts or cross-device sync. Other browser sessions cannot list, read, or delete your documents. Job fetching rejects private/reserved IPs and pins connections to validated addresses, including redirects.
-- Public deployment requires authentication, TLS, managed secrets, durable/expiring storage, per-user quotas, monitoring, and sandboxed conversion workers without network access. Native document parsers must not process untrusted public uploads inside a privileged web-server process.
-- `pdf2docx` and its transitive dependencies have their own licenses. Review those licenses, especially PyMuPDF's AGPL/commercial terms, before deployment or distribution.
-
-## Validation
+## Validation and licensing
 
 ```sh
-npm test
+npx vitest run tests/browser-pdf.test.ts tests/browser-word.test.ts tests/review.test.ts
 npm run build
 ```
 
-Tests cover Claude request/response contracts with a mocked API (no credentials or charges), experience downgrades and altered metrics, removal of no-op suggestions, word diffs, exact unchanged-run preservation, protected paragraphs, Unicode/XML handling, bounded layout adjustments, actual export-gate decisions, session isolation, consent, stale approvals, and job URL restrictions.
+Focused browser-engine checks cover original-glyph edits, unchanged pixels outside edited lines, inline link/underline reflow, URI retention, overflow refusal, unsupported glyphs, Word style preservation, and fact protection. Browser validation also checks device persistence, key clearing, previews, and download gates without billable model calls.
 
-Native PDF tests compare rendered pixels before/after a synthetic edit and assert that pixels outside the original text area are identical. They also cover image/link retention, overflow refusal, missing glyphs, mixed-style region editing, adjacent-line and inline-bold preservation, stale region mappings, and byte-identical no-op output. These run when `.venv/bin/python` exists. Real Word converter tests run when both converters are available and otherwise report a skip. Synthetic fixtures do not certify fidelity for every real resume. No real resumes or credentials are included.
+MuPDF.js uses **AGPL-3.0-or-later** terms (or a separate commercial license). Review dependency licensing before distributing a modified version or integrating it elsewhere. The project is published with an AGPL-3.0-or-later license to match the open-source browser engine.

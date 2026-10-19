@@ -2,15 +2,19 @@
   "name": "resumator",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
+    "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "start": "tsx server/index.ts",
+    "start": "vite preview --host 127.0.0.1 --port 3001",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "mupdf": "^1.28.1",
+    "fflate": "^0.8.3",
+    "docx-preview": "^0.4.1",
     "@anthropic-ai/sdk": "^0.133.0",
     "@xmldom/xmldom": "^0.9.12",
     "adm-zip": "^0.6.1",

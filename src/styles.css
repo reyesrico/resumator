@@ -10,6 +10,13 @@
   --accent: #315bdb;
   --accent-soft: #edf2ff;
 }
+.session-key { margin: 28px 0; }
+.key-controls { display:flex;gap:12px;align-items:center; }
+.key-controls input { flex:1;min-width:0;border:1px solid #d6dce6;border-radius:6px;padding:12px;font:inherit;font-size:13px; }
+.key-controls button { width:auto;white-space:nowrap; }
+.backup-button { margin-top:16px; }
+.browser-pdf-preview { max-height:900px;overflow:auto;background:#e9edf3;border:1px solid #dce2eb;border-radius:5px;padding:8px; }
+.browser-pdf-preview img { display:block;width:100%;height:auto;margin:0 auto 8px;background:white; }
 
 * { box-sizing: border-box; }
 body { margin: 0; }
